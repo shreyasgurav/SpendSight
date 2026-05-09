@@ -11,3 +11,15 @@
 **Blockers / what I'm stuck on:** Need to set up Supabase RLS policies correctly. Also need to decide whether to use a multi-step form wizard or a single-page form for the audit input. Leaning toward single-page for simplicity.
 
 **Plan for tomorrow:** Build the full spend input form with all 8 tools, plan selectors, seat count, and localStorage persistence. Write lib/pricing-data.ts with verified pricing from every vendor.
+
+## Day 2 - 2025-05-08
+
+**Hours worked:** 4
+
+**What I did:** Built the complete spend input form with dynamic tool add/remove, plan selectors that populate based on tool selection, auto-calculated spend based on plan price times seats, and localStorage persistence so users don't lose their data on refresh. Created lib/pricing-data.ts with pricing for all 8 tools (Cursor, GitHub Copilot, Claude, ChatGPT, Gemini, Windsurf, Anthropic API, OpenAI API) with plans and per-user prices. Built the audit engine with explicit if/else rules for plan downgrades, cheaper alternatives, and redundancy detection. Added a basic results page that shows the audit output.
+
+**What I learned:** The hydration issue with localStorage in Next.js App Router is real. You can't read localStorage during SSR because it doesn't exist on the server. The fix is to render a loading state first, then hydrate from localStorage in a useEffect. Also learned that the Select component in shadcn/ui v4 passes null on clear, not undefined, so TypeScript types need to handle that.
+
+**Blockers / what I'm stuck on:** Nothing major. The form works well. Need to verify all pricing data against vendor pages tomorrow and fill in PRICING_DATA.md with the source URLs.
+
+**Plan for tomorrow:** Build the full results page with animated savings counter, per-tool cards with color coding, and the Credex CTA. Write tests for the audit engine.
