@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -9,16 +9,121 @@ import {
   CheckCircle2,
   TrendingDown,
   Loader2,
+  Share2,
+  AlertTriangle,
+  Sparkles,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { AuditSummary } from "@/lib/audit-engine";
+import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
+import type { AuditSummary, ToolAuditResult } from "@/lib/audit-engine";
 
 interface AuditData extends AuditSummary {
   shareSlug: string;
   auditId: string | null;
   stored: boolean;
+}
+
+function useCountUp(end: number, duration: number = 1500) {
+  const [count, setCount] = useState(0);
+  const startTime = useRef<number | null>(null);
+  const rafId = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (end === 0) {
+      setCount(0);
+      return;
+    }
+
+    const animate = (timestamp: number) => {
+      if (!startTime.current) startTime.current = timestamp;
+      const progress = Math.min((timestamp - startTime.current) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * end));
+
+      if (progress < 1) {
+        rafId.current = requestAnimationFrame(animate);
+      } else {
+        setCount(end);
+      }
+    };
+
+    rafId.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+    };
+  }, [end, duration]);
+
+  return count;
+}
+
+function getConfidenceBadge(confidence: ToolAuditResult["confidence"]) {
+  switch (confidence) {
+    case "high":
+      return (
+        <Badge variant="outline" className="text-xs border-green-300 text-green-700">
+          High confidence
+        </Badge>
+      );
+    case "medium":
+      return (
+        <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">
+          Medium confidence
+        </Badge>
+      );
+    case "low":
+      return (
+        <Badge variant="outline" className="text-xs border-gray-300 text-gray-600">
+          Low confidence
+        </Badge>
+      );
+  }
+}
+
+function getTypeBadge(type: ToolAuditResult["type"], savings: number) {
+  switch (type) {
+    case "optimal":
+      return (
+        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Optimal
+        </Badge>
+      );
+    case "downgrade":
+      return (
+        <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+          <TrendingDown className="h-3 w-3 mr-1" />
+          Downgrade · Save ${savings}/mo
+        </Badge>
+      );
+    case "switch_tool":
+      return (
+        <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+          <Sparkles className="h-3 w-3 mr-1" />
+          Switch · Save ${savings}/mo
+        </Badge>
+      );
+    case "redundant":
+      return (
+        <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Redundant · Save ${savings}/mo
+        </Badge>
+      );
+    default:
+      if (savings > 0) {
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+            Save ${savings}/mo
+          </Badge>
+        );
+      }
+      return null;
+  }
 }
 
 export default function ResultsPage() {
@@ -28,7 +133,6 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Try to load from sessionStorage first
     const cached = sessionStorage.getItem("spendsight-audit-result");
     if (cached) {
       try {
@@ -42,9 +146,21 @@ export default function ResultsPage() {
         // ignore
       }
     }
-    // For now, just show not found if not in session
     setLoading(false);
   }, [slug]);
+
+  const animatedSavings = useCountUp(auditData?.totalMonthlySavings || 0);
+  const animatedAnnual = useCountUp(auditData?.totalAnnualSavings || 0);
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied to clipboard!");
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
 
   if (loading) {
     return (
@@ -69,6 +185,9 @@ export default function ResultsPage() {
   }
 
   const isOptimal = auditData.savingsCategory === "optimal";
+  const isHighSavings = auditData.savingsCategory === "high";
+  const actionableResults = auditData.results.filter((r) => r.monthlySavings > 0);
+  const optimalResults = auditData.results.filter((r) => r.type === "optimal");
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -81,11 +200,22 @@ export default function ResultsPage() {
               SpendSight
             </span>
           </Link>
-          <Link href="/audit">
-            <Button size="sm" variant="outline">
-              New audit
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleShare}
+              className="cursor-pointer"
+            >
+              <Share2 className="h-4 w-4 mr-1" />
+              Share
             </Button>
-          </Link>
+            <Link href="/audit">
+              <Button size="sm" variant="outline" className="cursor-pointer">
+                New audit
+              </Button>
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -101,8 +231,9 @@ export default function ResultsPage() {
                 <h1 className="text-3xl sm:text-4xl font-bold mb-2">
                   Your spend is optimized
                 </h1>
-                <p className="text-lg text-muted-foreground">
-                  No immediate savings found. Your AI tool stack looks good.
+                <p className="text-lg text-muted-foreground max-w-md mx-auto">
+                  No immediate savings found. Your AI tool stack is well-suited
+                  for your team size and use case.
                 </p>
               </>
             ) : (
@@ -112,16 +243,16 @@ export default function ResultsPage() {
                   className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 mb-4"
                 >
                   <TrendingDown className="h-3 w-3 mr-1" />
-                  Savings found
+                  {actionableResults.length} optimization
+                  {actionableResults.length !== 1 ? "s" : ""} found
                 </Badge>
                 <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-2 tracking-tight">
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-500">
-                    ${auditData.totalMonthlySavings.toLocaleString()}/mo
+                    ${animatedSavings.toLocaleString()}/mo
                   </span>
                 </h1>
                 <p className="text-xl text-muted-foreground">
-                  ${auditData.totalAnnualSavings.toLocaleString()}/year in
-                  potential savings
+                  ${animatedAnnual.toLocaleString()}/year in potential savings
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
                   Current: ${auditData.totalCurrentSpend.toLocaleString()}/mo →
@@ -132,57 +263,125 @@ export default function ResultsPage() {
             )}
           </section>
 
-          {/* Results cards */}
-          <h2 className="text-xl font-bold mb-4">Tool breakdown</h2>
-          <div className="space-y-4 mb-12">
-            {auditData.results.map((result, i) => (
-              <Card
-                key={`${result.tool}-${i}`}
-                className={
-                  result.type === "optimal"
-                    ? "border-green-200 dark:border-green-900"
-                    : result.monthlySavings > 0
-                      ? "border-yellow-200 dark:border-yellow-900"
-                      : ""
-                }
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">
-                      {result.toolName}
-                    </CardTitle>
-                    {result.type === "optimal" ? (
-                      <Badge
-                        variant="secondary"
-                        className="bg-green-100 text-green-800"
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        Optimal
-                      </Badge>
-                    ) : result.monthlySavings > 0 ? (
-                      <Badge
-                        variant="secondary"
-                        className="bg-yellow-100 text-yellow-800"
-                      >
-                        Save ${result.monthlySavings}/mo
-                      </Badge>
-                    ) : null}
+          {/* Credex CTA for high savings */}
+          {isHighSavings && (
+            <Card className="mb-8 border-primary/50 bg-primary/5">
+              <CardContent className="py-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-center sm:text-left">
+                    <h3 className="font-semibold text-lg mb-1">
+                      Unlock even more savings with Credex
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      With ${auditData.totalMonthlySavings}+/mo in potential
+                      savings, you qualify for discounted AI credits through
+                      Credex.
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm font-medium mb-1">
-                    {result.recommendedAction}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {result.reasoning}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <a
+                    href="https://credex.rocks"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button className="cursor-pointer whitespace-nowrap">
+                      Talk to Credex
+                      <ExternalLink className="h-4 w-4 ml-2" />
+                    </Button>
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* CTA */}
-          <div className="text-center">
+          {/* Actionable results */}
+          {actionableResults.length > 0 && (
+            <>
+              <h2 className="text-xl font-bold mb-4">
+                Recommended actions ({actionableResults.length})
+              </h2>
+              <div className="space-y-4 mb-8">
+                {actionableResults.map((result, i) => (
+                  <Card
+                    key={`action-${result.tool}-${i}`}
+                    className="border-l-4 border-l-yellow-400"
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <CardTitle className="text-base">
+                            {result.toolName}
+                          </CardTitle>
+                          <span className="text-sm text-muted-foreground">
+                            {result.currentPlan} · ${result.currentSpend}/mo
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {getTypeBadge(result.type, result.monthlySavings)}
+                          {getConfidenceBadge(result.confidence)}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm font-medium mb-1">
+                        {result.recommendedAction}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {result.reasoning}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Optimal tools */}
+          {optimalResults.length > 0 && (
+            <>
+              <Separator className="my-8" />
+              <h2 className="text-xl font-bold mb-4">
+                Already optimized ({optimalResults.length})
+              </h2>
+              <div className="space-y-3 mb-12">
+                {optimalResults.map((result, i) => (
+                  <Card
+                    key={`optimal-${result.tool}-${i}`}
+                    className="border-green-200 dark:border-green-900"
+                  >
+                    <CardContent className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          <span className="font-medium">{result.toolName}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {result.currentPlan} · ${result.currentSpend}/mo
+                          </span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="border-green-300 text-green-700"
+                        >
+                          No changes needed
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Bottom CTA */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handleShare}
+              className="cursor-pointer"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              Share this audit
+            </Button>
             <Link href="/audit">
               <Button size="lg" className="cursor-pointer">
                 Run another audit
@@ -203,7 +402,7 @@ export default function ResultsPage() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Pricing data verified as of May 2025.
+            Pricing data verified as of May 2025. Not financial advice.
           </p>
         </div>
       </footer>
