@@ -4,7 +4,7 @@ SpendSight is a free web app that helps startup founders and engineering manager
 
 Built as a lead-generation asset for [Credex](https://credex.rocks), which sells discounted AI infrastructure credits.
 
-**Live:** [https://spendsight.vercel.app](https://spendsight.vercel.app)
+**Live:** [https://spendsight.vercel.app](https://spendsightapp.vercel.app/)
 
 ## Quick Start
 
