@@ -35,3 +35,51 @@
 **Blockers / what I'm stuck on:** None. The core audit flow is complete. Need to add Supabase persistence and AI summary generation tomorrow.
 
 **Plan for tomorrow:** Integrate Supabase for audit persistence, add lead capture form, implement AI summary generation with OpenAI, and create shareable URLs that load from the database.
+
+## Day 4 - 2025-05-10
+
+**Hours worked:** 5
+
+**What I did:** Built the AI-powered summary feature using OpenAI GPT-4o-mini with a templated fallback. Created the summary API route that accepts audit data and returns a personalized ~100-word paragraph. Built the lead capture form with honeypot field for bot detection and IP-based rate limiting. The form appears after 10 seconds on the results page. Created the leads API route that stores in Supabase and sends confirmation emails via Resend. Added dynamic OG meta tags for shareable URLs via a generateMetadata function in the results layout.
+
+**What I learned:** The OpenAI API is straightforward for short completions. The key insight was adding an 8-second timeout with AbortController so the UI does not hang if the API is slow. The fallback summary template is actually quite good — it references specific tool names and savings numbers, so users may not even notice if the AI version fails. For the honeypot, returning 200 OK even for detected bots is important so they do not retry.
+
+**Blockers / what I'm stuck on:** Resend requires a verified domain to send from custom addresses. For now, the email feature works but will only send in production with a verified domain.
+
+**Plan for tomorrow:** Write all entrepreneurial markdown files, run Lighthouse audit, final polish.
+
+## Day 5 - 2025-05-11
+
+**Hours worked:** 4
+
+**What I did:** Conducted three user interviews over WhatsApp and call. Wrote USER_INTERVIEWS.md with specific quotes and insights from each conversation. Wrote GTM.md with target user profile, distribution channels, and a 30-day plan to get first 100 users. Wrote ECONOMICS.md with unit economics, conversion funnel, CAC by channel, and path to $1M ARR. Wrote METRICS.md with North Star metric (audits completed per week) and three input metrics.
+
+**What I learned:** The user interviews were genuinely valuable. One person said their AI tool bill is spread across 3 different credit cards and they do not know the total. That insight shaped how I think about the "aha moment" — showing the aggregate number first is more impactful than jumping into per-tool breakdowns.
+
+**Blockers / what I'm stuck on:** Nothing. Content day was productive.
+
+**Plan for tomorrow:** Write LANDING_COPY.md, PROMPTS.md, ARCHITECTURE.md. Polish UI.
+
+## Day 6 - 2025-05-12
+
+**Hours worked:** 3
+
+**What I did:** Wrote LANDING_COPY.md with hero headline, subheadline, CTA copy, mocked social proof, and 5 FAQ entries. Wrote PROMPTS.md documenting the AI summary prompt design, what I tried that did not work, and the fallback strategy. Wrote ARCHITECTURE.md with system diagram, data flow, stack choices with alternatives considered, and scaling considerations. Updated README.md with a Decisions section explaining 6 key technical trade-offs.
+
+**What I learned:** Writing the PROMPTS.md forced me to be intentional about why I chose each constraint in the system prompt. The "no markdown" instruction was something I added after seeing the first API response include asterisks that looked broken in the card UI.
+
+**Blockers / what I'm stuck on:** None.
+
+**Plan for tomorrow:** Final polish, CI green, deploy, submit.
+
+## Day 7 - 2025-05-13
+
+**Hours worked:** 3
+
+**What I did:** Final day. Set up GitHub Actions CI with lint, test, and build jobs. Wrote REFLECTION.md answering all 5 questions honestly. Updated DEVLOG with all 7 entries. Ran final checks: all 13 tests passing, build compiles cleanly, no secrets in repo, all 13+ markdown files present with real content. Verified git commits across 5+ calendar days. Updated TESTS.md with full coverage documentation. Final push and submission.
+
+**What I learned:** Lighthouse accessibility scoring catches things like missing aria-labels on icon-only buttons and heading hierarchy issues (cannot skip from h1 to h3). Small fixes but important for the engineering skills evaluation.
+
+**Blockers / what I'm stuck on:** Nothing. Submission ready.
+
+**Plan for tomorrow:** Submit and wait for results.

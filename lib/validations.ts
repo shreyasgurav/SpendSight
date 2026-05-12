@@ -27,7 +27,7 @@ export const LeadCaptureSchema = z.object({
   companyName: z.string().max(200).optional(),
   role: z.string().max(100).optional(),
   teamSize: z.number().int().min(1).max(10000).optional(),
-  honeypot: z.string().max(0).optional(),
+  honeypot: z.string().optional(),
 })
 
 export const SummaryRequestSchema = z.object({

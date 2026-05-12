@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import type { AuditSummary, ToolAuditResult } from "@/lib/audit-engine";
 
@@ -131,6 +133,13 @@ export default function ResultsPage() {
   const slug = params.slug as string;
   const [auditData, setAuditData] = useState<AuditData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [leadEmail, setLeadEmail] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+  const [showLeadForm, setShowLeadForm] = useState(false);
 
   useEffect(() => {
     const cached = sessionStorage.getItem("spendsight-audit-result");
@@ -148,6 +157,44 @@ export default function ResultsPage() {
     }
     setLoading(false);
   }, [slug]);
+
+  useEffect(() => {
+    if (!auditData || auditData.savingsCategory === "optimal") return;
+    setSummaryLoading(true);
+    fetch("/api/summary", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auditData }),
+    })
+      .then((res) => res.json())
+      .then((data) => setAiSummary(data.summary || null))
+      .catch(() => {})
+      .finally(() => setSummaryLoading(false));
+  }, [auditData]);
+
+  useEffect(() => {
+    if (!auditData) return;
+    const timer = setTimeout(() => setShowLeadForm(true), 10000);
+    return () => clearTimeout(timer);
+  }, [auditData]);
+
+  const handleLeadSubmit = async () => {
+    if (!leadEmail || leadSubmitting) return;
+    setLeadSubmitting(true);
+    try {
+      await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: leadEmail, honeypot }),
+      });
+      setLeadSubmitted(true);
+      toast.success("Saved! Check your email for your audit report.");
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setLeadSubmitting(false);
+    }
+  };
 
   const animatedSavings = useCountUp(auditData?.totalMonthlySavings || 0);
   const animatedAnnual = useCountUp(auditData?.totalAnnualSavings || 0);
@@ -368,6 +415,97 @@ export default function ResultsPage() {
                   </Card>
                 ))}
               </div>
+            </>
+          )}
+
+          {/* AI Summary */}
+          {(summaryLoading || aiSummary) && (
+            <>
+              <Separator className="my-8" />
+              <h2 className="text-xl font-bold mb-4">AI-powered summary</h2>
+              {summaryLoading ? (
+                <Card>
+                  <CardContent className="py-6 flex items-center gap-3">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Generating your personalized summary...
+                    </span>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="py-6">
+                    <p className="text-sm leading-relaxed">{aiSummary}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
+
+          {/* Lead Capture */}
+          {showLeadForm && !leadSubmitted && (
+            <>
+              <Separator className="my-8" />
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="py-6">
+                  <h3 className="font-semibold text-lg mb-1">
+                    Save your audit report
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Get a copy of your results emailed to you. No spam, ever.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1">
+                      <Label htmlFor="lead-email" className="sr-only">
+                        Email
+                      </Label>
+                      <Input
+                        id="lead-email"
+                        type="email"
+                        placeholder="you@company.com"
+                        value={leadEmail}
+                        onChange={(e) => setLeadEmail(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleLeadSubmit()
+                        }
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      name="website"
+                      value={honeypot}
+                      onChange={(e) => setHoneypot(e.target.value)}
+                      className="hidden"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden="true"
+                    />
+                    <Button
+                      onClick={handleLeadSubmit}
+                      disabled={!leadEmail || leadSubmitting}
+                      className="cursor-pointer"
+                    >
+                      {leadSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Send me my report"
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {leadSubmitted && (
+            <>
+              <Separator className="my-8" />
+              <Card className="border-green-200 bg-green-50 dark:bg-green-950">
+                <CardContent className="py-6 flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <p className="text-sm">Report saved! Check your inbox.</p>
+                </CardContent>
+              </Card>
             </>
           )}
 
